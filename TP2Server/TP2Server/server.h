@@ -28,7 +28,6 @@ public slots:
 private:
     void printStreamToLog();
     int validateRequest(int user, int request[3]);
-    bool safeState();
 
     QWidget *parentWidget;
     QTcpServer *tcpServer;

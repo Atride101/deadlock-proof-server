@@ -38,7 +38,7 @@ void Server::processRequest()
 
     // Reading the maximum requested resources
     clientConnection->waitForReadyRead();
-    char maximumMsg[20] = "empty";
+    char maximumMsg[20] = "";
     qDebug() << clientConnection->read(maximumMsg, 20);
     QStringList maximumMsgList = QString(maximumMsg).split(" ");
     int user = maximumMsgList[0].toInt();
@@ -53,7 +53,7 @@ void Server::processRequest()
 
     // Reading the request
     clientConnection->waitForReadyRead();
-    char requestMsg[20] = " ";
+    char requestMsg[20] = "";
     qDebug() << clientConnection->read(requestMsg, 20);
     logStream << QString(requestMsg);
     printStreamToLog();
@@ -65,12 +65,15 @@ void Server::processRequest()
     request[2] = requestMsgList[4].toInt();
 
     // Processing the request
-    QString responseMsg;
-    if (validateRequest(user, request) == -1)
+    int validInt = validateRequest(user, request);
+//    logStream << QString::number(validInt);
+//    printStreamToLog();
+    QString responseMsg = QString("");
+    if (validInt == -1)
         responseMsg = QString::number(-1);
-    if (validateRequest(user, request) == 1)
+    if (validInt == 1)
         responseMsg = QString::number(1);
-    if (validateRequest(user, request) == 0) {
+    if (validInt == 0) {
         responseMsg = QString::number(0);
         addInstancesOfResources(request);
     }
@@ -98,8 +101,13 @@ void Server::addInstancesOfResources(int numberOfInstances[NUMBER_OF_RESOURCES])
 /// This function does the Banker's algorithm with the current request
 /// and simply returns whether the request is valid, invalid or if it should wait
 int Server::validateRequest(int user, int request[3]) {
+    // Checks if the request is greater than the current need
     if (-request[0] > need[user][0] || -request[1] > need[user][1] || -request[2] > need[user][2])
         return -1;
+    // Checks if the returned resources are greater than the current allocation
+    if (request[0] > allocation[user][0] || request[1] > allocation[user][1] || request[2] > allocation[user][2])
+        return -1;
+    // Checks if the request is greater than the current available resources
     if (-request[0] > available[0] || -request[1] > available[1] || -request[2] > available[2])
         return 1;
 
@@ -119,10 +127,6 @@ int Server::validateRequest(int user, int request[3]) {
     }
 
     return 0;
-}
-
-bool safeState() {
-    return true;
 }
 
 /// This is a convinient function to easily print to the log window in the GUI

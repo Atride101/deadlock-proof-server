@@ -17,8 +17,8 @@ ClientThread::ClientThread(int id, QString serverIP, int serverPort, int m, QObj
     maximum[1] = rand() % 101;
     maximum[2] = rand() % 6;
 
-    //    QString request = "max : " + QString::number(r1Max) + " " + QString::number(r2Max) + " " + QString::number(r3Max);
-    //    qDebug() << request;
+    QString maximumMsg = "max : " + QString::number(maximum[0]) + " " + QString::number(maximum[1]) + " " + QString::number(maximum[2]);
+    qDebug() << maximumMsg;
 }
 
 void ClientThread::run()
@@ -70,12 +70,13 @@ void ClientThread::run()
                 + " " + QString::number(request[2]);
         socket.write(requestMsg.toStdString().c_str());
         socket.waitForBytesWritten();
+        qDebug() << "request : " << requestMsg;
 
         // Reading response
         socket.waitForReadyRead();
         char responseMsg[20] = "";
         socket.read(responseMsg, 20);
-        qDebug() << QString(responseMsg);
+        qDebug() << "response : " << QString(responseMsg);
         QStringList responseMsgList = QString(responseMsg).split(" ");
         int response = responseMsgList[0].toInt();
 
