@@ -27,6 +27,8 @@ public slots:
 
 private:
     void printStreamToLog();
+    int validateRequest(int user, int request[3]);
+    bool safeState();
 
     QWidget *parentWidget;
     QTcpServer *tcpServer;
@@ -34,7 +36,7 @@ private:
     QString logString;
 
     //Data structures needed to implement bankers algorithm
-    int available    [NUMBER_OF_RESOURCES];
+    int available   [NUMBER_OF_RESOURCES];
     int maximum     [NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];
     int allocation  [NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];
     int need        [NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];

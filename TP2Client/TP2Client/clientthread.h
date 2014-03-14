@@ -18,7 +18,7 @@ private:
     int         serverPortNumber;
     int         M;
     int         allocated[3];
-    int         max[3];
+    int         maximum[3];
 };
 
 #endif // CLIENTTHREAD_H

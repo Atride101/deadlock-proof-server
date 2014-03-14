@@ -16,8 +16,14 @@ Server::Server(int numResources[], QWidget *parent)
     logStream.setString(&logString);
 
     //Initialization of data structures
-    for (int i = 0 ; i < NUMBER_OF_RESOURCES ; i++)
+    for (int i = 0 ; i < NUMBER_OF_RESOURCES ; i++) {
         available[i] = numResources[i];
+        for (int j = 0 ; j < NUMBER_OF_CUSTOMERS ; j++) {
+            maximum[j][i] = -1;
+            allocation[j][i] = 0;
+            need[j][i] = 0;
+        }
+    }
 }
 
 /// This function is called whenever the system
@@ -32,38 +38,45 @@ void Server::processRequest()
 
     // Reading the maximum requested resources
     clientConnection->waitForReadyRead();
-    char max[20] = "empty";
-    qDebug() << clientConnection->read(max, 20);
-    QStringList maxList = QString(max).split(" ");
-    int user = maxList[0].toInt();
-    int r1Max = maxList[2].toInt();
-    int r2Max = maxList[3].toInt();
-    int r3Max = maxList[4].toInt();
+    char maximumMsg[20] = "empty";
+    qDebug() << clientConnection->read(maximumMsg, 20);
+    QStringList maximumMsgList = QString(maximumMsg).split(" ");
+    int user = maximumMsgList[0].toInt();
+    maximum[user][0] = maximumMsgList[2].toInt();
+    maximum[user][1] = maximumMsgList[3].toInt();
+    maximum[user][2] = maximumMsgList[4].toInt();
 
-    // Writing maximum requested resources in database
-    maximum[user][0] = r1Max;
-    maximum[user][1] = r2Max;
-    maximum[user][2] = r3Max;
+    // Writing needs in database
+    need[user][0] = maximum[user][0] - allocation[user][0];
+    need[user][1] = maximum[user][1] - allocation[user][1];
+    need[user][2] = maximum[user][2] - allocation[user][2];
 
     // Reading the request
     clientConnection->waitForReadyRead();
-    char request[20] = "empty";
-    qDebug() << clientConnection->read(request, 20);
-    logStream << QString(request);
+    char requestMsg[20] = " ";
+    qDebug() << clientConnection->read(requestMsg, 20);
+    logStream << QString(requestMsg);
     printStreamToLog();
-    QStringList requestList = QString(request).split(" ");
-    //int user = requestList[0].toInt();
-    int r1 = requestList[2].toInt();
-    int r2 = requestList[3].toInt();
-    int r3 = requestList[4].toInt();
+    QStringList requestMsgList = QString(requestMsg).split(" ");
+    //int user = requestMsgList[0].toInt();
+    int request[3];
+    request[0] = requestMsgList[2].toInt();
+    request[1] = requestMsgList[3].toInt();
+    request[2] = requestMsgList[4].toInt();
 
     // Processing the request
-    int modifiedResources [] = {r1, r2, r3};
-    addInstancesOfResources(modifiedResources);
+    QString responseMsg;
+    if (validateRequest(user, request) == -1)
+        responseMsg = QString::number(-1);
+    if (validateRequest(user, request) == 1)
+        responseMsg = QString::number(1);
+    if (validateRequest(user, request) == 0) {
+        responseMsg = QString::number(0);
+        addInstancesOfResources(request);
+    }
 
     // Writing response
-    QString response = QString::number(user) + " " + QString::number(r1) + " " + QString::number(r2) + " " + QString::number(r3);
-    clientConnection->write(response.toStdString().c_str());
+    clientConnection->write(responseMsg.toStdString().c_str());
     clientConnection->waitForBytesWritten();
 
     //Close conection and free the memory once the connection is lost
@@ -82,7 +95,35 @@ void Server::addInstancesOfResources(int numberOfInstances[NUMBER_OF_RESOURCES])
         emit updateAddResourceInGUI(i, numberOfInstances[i]);
 }
 
+/// This function does the Banker's algorithm with the current request
+/// and simply returns whether the request is valid, invalid or if it should wait
+int Server::validateRequest(int user, int request[3]) {
+    if (-request[0] > need[user][0] || -request[1] > need[user][1] || -request[2] > need[user][2])
+        return -1;
+    if (-request[0] > available[0] || -request[1] > available[1] || -request[2] > available[2])
+        return 1;
 
+    for (int i = 0 ; i < NUMBER_OF_RESOURCES ; i++) {
+         available[i] += request[i];
+         allocation[user][i] -= request[i];
+         need[user][i] += request[i];
+    }
+
+    if (false) {
+        for (int i = 0 ; i < NUMBER_OF_RESOURCES ; i++) {
+            available[i] -= request[i];
+            allocation[user][i] += request[i];
+            need[user][i] -= request[i];
+        }
+        return 1;
+    }
+
+    return 0;
+}
+
+bool safeState() {
+    return true;
+}
 
 /// This is a convinient function to easily print to the log window in the GUI
 /// Call it after adding some output to "logStream"
