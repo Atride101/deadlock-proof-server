@@ -109,7 +109,7 @@ int Server::validateRequest(int user, int request[3]) {
         return -1;
     // Checks if the request is greater than the current available resources
     if (-request[0] > available[0] || -request[1] > available[1] || -request[2] > available[2])
-        return 1;
+        return 5;
 
     // Resource-request algorithm
     //

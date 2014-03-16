@@ -23,28 +23,20 @@ ClientThread::ClientThread(int id, QString serverIP, int serverPort, int m, QObj
 
 void ClientThread::run()
 {
+    int request[3];
+    bool wait = false;
+    char responseMsg[20] = "";
+    QString maximumMsg = QString::number(index)
+            + " 3 " + QString::number(maximum[0])
+            + " " + QString::number(maximum[1])
+            + " " + QString::number(maximum[2]);
+
+    // Loop over the M requests made by one process
     for (int i = 0; i < M; i++) {
 
-        QTcpSocket socket;
-        socket.connectToHost(serverAddress, serverPortNumber);
-
-        if (!socket.waitForConnected())
-            qDebug() << "Could not connect, error:\n" << socket.errorString();
-        else
-            qDebug() << "Connection established";
-
-        // Sending maximum demands
-        QString maximumMsg = QString::number(index)
-                + " 3 " + QString::number(maximum[0])
-                + " " + QString::number(maximum[1])
-                + " " + QString::number(maximum[2]);
-        socket.write(maximumMsg.toStdString().c_str());
-        socket.waitForBytesWritten();
-
-        int request[3];
         if (i < M - 1) {
             // Randomization of the request's resources
-            // The values are randomized within a certain range so they are always valid
+            // The values are randomized within a certain range (they are always valid)
             while (true) {
                 request[0] = rand() % (maximum[0] + 1) - maximum[0] + allocated[0];
                 request[1] = rand() % (maximum[1] + 1) - maximum[1] + allocated[1];
@@ -63,37 +55,57 @@ void ClientThread::run()
             request[2] = allocated[2];
         }
 
-        // Sending request
-        QString requestMsg = QString::number(index)
-                + " 3 " + QString::number(request[0])
-                + " " + QString::number(request[1])
-                + " " + QString::number(request[2]);
-        socket.write(requestMsg.toStdString().c_str());
-        socket.waitForBytesWritten();
-        qDebug() << "request : " << requestMsg;
+        // Loop over the same request if the request is refused by the
+        // server because the resources are unavailable at the time
+        do {
+            QTcpSocket socket;
+            socket.connectToHost(serverAddress, serverPortNumber);
 
-        // Reading response
-        socket.waitForReadyRead();
-        char responseMsg[20] = "";
-        socket.read(responseMsg, 20);
-        qDebug() << "response : " << QString(responseMsg);
-        QStringList responseMsgList = QString(responseMsg).split(" ");
-        int response = responseMsgList[0].toInt();
+            if (!socket.waitForConnected())
+                qDebug() << "Could not connect, error:\n" << socket.errorString();
+            else
+                qDebug() << "Connection established";
 
-        // Processing response
-        //        if (response == -1)
-        //            break;
-        //        if (response == 1)
-        //            break;
-        if (response == 0) {
-            allocated[0] -= request[0];
-            allocated[1] -= request[1];
-            allocated[2] -= request[2];
-        }
+            // Sending maximum resource demands
+            socket.write(maximumMsg.toStdString().c_str());
+            socket.waitForBytesWritten();
 
-        //Use the function sleep(s) to put the thread
-        //to sleep during s seconds
-        sleep(2);
+            // Sending request
+            QString requestMsg = QString::number(index)
+                    + " 3 " + QString::number(request[0])
+                    + " " + QString::number(request[1])
+                    + " " + QString::number(request[2]);
+            socket.write(requestMsg.toStdString().c_str());
+            socket.waitForBytesWritten();
+            qDebug() << "request : " << requestMsg;
+
+            // Reading response
+            socket.waitForReadyRead();
+            socket.read(responseMsg, 20);
+            qDebug() << "response : " << QString(responseMsg);
+            QStringList responseMsgList = QString(responseMsg).split(" ");
+            int response = responseMsgList[0].toInt();
+
+            // Processing response
+            if (response == -1) {
+                wait = false;
+                break;
+            }
+            if (response > 0) {
+                wait = true;
+                sleep(response);
+            }
+            if (response == 0) {
+                wait = false;
+                allocated[0] -= request[0];
+                allocated[1] -= request[1];
+                allocated[2] -= request[2];
+            }
+
+            //socket.disconnectFromHost();
+            socket.close();
+
+        } while (wait == true);
     }
 
     exit(0);
