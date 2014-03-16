@@ -81,10 +81,10 @@ void ClientThread::run()
         int response = responseMsgList[0].toInt();
 
         // Processing response
-        if (response == -1)
-            break;
-        if (response == 1)
-            break;
+        //        if (response == -1)
+        //            break;
+        //        if (response == 1)
+        //            break;
         if (response == 0) {
             allocated[0] -= request[0];
             allocated[1] -= request[1];

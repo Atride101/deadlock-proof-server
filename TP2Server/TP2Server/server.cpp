@@ -7,7 +7,7 @@
 #include "server.h"
 
 Server::Server(int numResources[], QWidget *parent)
-:   parentWidget(parent)
+    :   parentWidget(parent)
 {
     tcpServer = new QTcpServer(parentWidget);
     // For this QTcpServer whenever a new conection is detected
@@ -42,6 +42,8 @@ void Server::processRequest()
     qDebug() << clientConnection->read(maximumMsg, 20);
     QStringList maximumMsgList = QString(maximumMsg).split(" ");
     int user = maximumMsgList[0].toInt();
+
+    // Writing maximum in database
     maximum[user][0] = maximumMsgList[2].toInt();
     maximum[user][1] = maximumMsgList[3].toInt();
     maximum[user][2] = maximumMsgList[4].toInt();
@@ -66,8 +68,6 @@ void Server::processRequest()
 
     // Processing the request
     int validInt = validateRequest(user, request);
-//    logStream << QString::number(validInt);
-//    printStreamToLog();
     QString responseMsg = QString("");
     if (validInt == -1)
         responseMsg = QString::number(-1);
@@ -111,13 +111,48 @@ int Server::validateRequest(int user, int request[3]) {
     if (-request[0] > available[0] || -request[1] > available[1] || -request[2] > available[2])
         return 1;
 
+    // Resource-request algorithm
+    //
+    // Pretend to have allocated the resources to the process
     for (int i = 0 ; i < NUMBER_OF_RESOURCES ; i++) {
-         available[i] += request[i];
-         allocation[user][i] -= request[i];
-         need[user][i] += request[i];
+        available[i] += request[i];
+        allocation[user][i] -= request[i];
+        need[user][i] += request[i];
     }
 
-    if (false) {
+    // Instanciating the data structures for the safety algorithm
+    bool finish[NUMBER_OF_CUSTOMERS];
+    for (int i = 0 ; i < NUMBER_OF_CUSTOMERS ; i++)
+        finish[i] = false;
+
+    int work[NUMBER_OF_RESOURCES];
+    for (int i = 0 ; i < NUMBER_OF_RESOURCES ; i++)
+        work[i] = available[i];
+
+    // Safety algorithm
+    for (int i = 0 ; i < NUMBER_OF_CUSTOMERS ; i++) {
+        for (int j = 0 ; j < NUMBER_OF_CUSTOMERS ; j++) {
+            if (finish[j] == false && need[j][0] <= work[0] && need[j][1] <= work[1] && need[j][2] <= work[2]) {
+                for (int k = 0 ; k < NUMBER_OF_RESOURCES ; k++)
+                    work[k] += allocation[j][k];
+                finish[j] = true;
+                break;
+            }
+        }
+    }
+
+    // Result of the safety algorithm
+    // Represents if the present state is safe
+    bool safeState = true;
+    for (int i = 0 ; i < NUMBER_OF_CUSTOMERS ; i++) {
+        if (finish[i] == false) {
+            safeState = false;
+            break;
+        }
+    }
+
+    // If the state is unsafe, all allocated resources are returned
+    if (!safeState) {
         for (int i = 0 ; i < NUMBER_OF_RESOURCES ; i++) {
             available[i] -= request[i];
             allocation[user][i] += request[i];
