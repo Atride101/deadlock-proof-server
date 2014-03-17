@@ -39,7 +39,8 @@ void Server::processRequest()
     // Reading the maximum requested resources
     clientConnection->waitForReadyRead();
     char maximumMsg[20] = "";
-    qDebug() << clientConnection->read(maximumMsg, 20);
+    qDebug() << clientConnection->readLine(maximumMsg, 20);
+    qDebug() << maximumMsg;
     QStringList maximumMsgList = QString(maximumMsg).split(" ");
     int user = maximumMsgList[0].toInt();
 
@@ -56,7 +57,8 @@ void Server::processRequest()
     // Reading the request
     clientConnection->waitForReadyRead();
     char requestMsg[20] = "";
-    qDebug() << clientConnection->read(requestMsg, 20);
+    qDebug() << clientConnection->readLine(requestMsg, 20);
+    qDebug() << requestMsg;
     logStream << QString(requestMsg);
     printStreamToLog();
     QStringList requestMsgList = QString(requestMsg).split(" ");
@@ -70,11 +72,11 @@ void Server::processRequest()
     int validInt = validateRequest(user, request);
     QString responseMsg = QString("");
     if (validInt == -1)
-        responseMsg = QString::number(-1);
+        responseMsg = QString::number(-1) + "\n";
     if (validInt == 1)
-        responseMsg = QString::number(1);
+        responseMsg = QString::number(1) + "\n";
     if (validInt == 0) {
-        responseMsg = QString::number(0);
+        responseMsg = QString::number(0) + "\n";
         addInstancesOfResources(request);
     }
 

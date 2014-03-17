@@ -29,7 +29,8 @@ void ClientThread::run()
     QString maximumMsg = QString::number(index)
             + " 3 " + QString::number(maximum[0])
             + " " + QString::number(maximum[1])
-            + " " + QString::number(maximum[2]);
+            + " " + QString::number(maximum[2])
+            + "\n";
 
     // Loop over the M requests made by one process
     for (int i = 0; i < M; i++) {
@@ -74,14 +75,15 @@ void ClientThread::run()
             QString requestMsg = QString::number(index)
                     + " 3 " + QString::number(request[0])
                     + " " + QString::number(request[1])
-                    + " " + QString::number(request[2]);
+                    + " " + QString::number(request[2])
+                    + "\n";
             socket.write(requestMsg.toStdString().c_str());
             socket.waitForBytesWritten();
             qDebug() << "request : " << requestMsg;
 
             // Reading response
             socket.waitForReadyRead();
-            socket.read(responseMsg, 20);
+            socket.readLine(responseMsg, 20);
             qDebug() << "response : " << QString(responseMsg);
             QStringList responseMsgList = QString(responseMsg).split(" ");
             int response = responseMsgList[0].toInt();
@@ -102,10 +104,11 @@ void ClientThread::run()
                 allocated[2] -= request[2];
             }
 
-            //socket.disconnectFromHost();
             socket.close();
 
         } while (wait == true);
+
+        sleep(1);
     }
 
     exit(0);
