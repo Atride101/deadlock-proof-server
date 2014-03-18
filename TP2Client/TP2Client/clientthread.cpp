@@ -5,6 +5,7 @@
 ClientThread::ClientThread(int id, QString serverIP, int serverPort, int m, QObject *parent)
     : QThread(parent), index(id), serverAddress(serverIP), serverPortNumber(serverPort), M(m)
 {
+    // Initialization of data structures
     allocated[0] = 0;
     allocated[1] = 0;
     allocated[2] = 0;
@@ -16,25 +17,36 @@ ClientThread::ClientThread(int id, QString serverIP, int serverPort, int m, QObj
     maximum[0] = rand() % 21;
     maximum[1] = rand() % 101;
     maximum[2] = rand() % 6;
-
-    QString maximumMsg = "max : " + QString::number(maximum[0]) + " " + QString::number(maximum[1]) + " " + QString::number(maximum[2]);
-    qDebug() << maximumMsg;
 }
 
 void ClientThread::run()
 {
-    int request[3];
     int sleepTime = 0;
     bool wait = false;
-    char responseMsg[20] = "";
+
+    QTcpSocket socket;
+    socket.connectToHost(serverAddress, serverPortNumber);
+
+    if (!socket.waitForConnected())
+        qDebug() << "Could not connect, error:\n" << socket.errorString();
+    else
+        qDebug() << "Connection established";
+
+    // Sending maximum resource demands
     QString maximumMsg = QString::number(index)
             + " 3 " + QString::number(maximum[0])
             + " " + QString::number(maximum[1])
-            + " " + QString::number(maximum[2])
-            + "\n";
+            + " " + QString::number(maximum[2]);
+    socket.write(maximumMsg.toStdString().c_str());
+    socket.waitForBytesWritten();
+
+    socket.disconnectFromHost();
+    // Artificial waiting time added to make the server alternate between the processes
+    sleep(1);
 
     // Loop over the M requests made by one process
     for (int i = 0; i < M; i++) {
+         int request[3];
 
         if (i < M - 1) {
             // Randomization of the request's resources
@@ -57,8 +69,8 @@ void ClientThread::run()
             request[2] = allocated[2];
         }
 
-        // Loop over the same request if the request is refused by the
-        // server because the resources are unavailable at the time
+        // Try the same request again after a certain time if the request is
+        // refused by the server because the resources are unavailable at the time
         do {
             QTcpSocket socket;
             socket.connectToHost(serverAddress, serverPortNumber);
@@ -68,23 +80,19 @@ void ClientThread::run()
             else
                 qDebug() << "Connection established";
 
-            // Sending maximum resource demands
-            socket.write(maximumMsg.toStdString().c_str());
-            socket.waitForBytesWritten();
-
             // Sending request
             QString requestMsg = QString::number(index)
                     + " 3 " + QString::number(request[0])
                     + " " + QString::number(request[1])
-                    + " " + QString::number(request[2])
-                    + "\n";
+                    + " " + QString::number(request[2]);
             socket.write(requestMsg.toStdString().c_str());
             socket.waitForBytesWritten();
             qDebug() << "request : " << requestMsg;
 
             // Reading response
             socket.waitForReadyRead();
-            socket.readLine(responseMsg, 20);
+            char responseMsg[20] = "";
+            socket.read(responseMsg, 20);
             qDebug() << "response : " << QString(responseMsg);
             QStringList responseMsgList = QString(responseMsg).split(" ");
             int response = responseMsgList[0].toInt();
@@ -107,11 +115,12 @@ void ClientThread::run()
             }
 
             socket.disconnectFromHost();
-
+            // Artificial waiting time added to make the server alternate between the processes
             sleep(1);
 
         } while (wait == true);
 
+        // The amount of time to wait before sending the same request again
         sleep(sleepTime);
     }
 

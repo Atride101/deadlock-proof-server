@@ -16,12 +16,17 @@ Server::Server(int numResources[], QWidget *parent)
     logStream.setString(&logString);
 
     //Initialization of data structures
-    for (int i = 0 ; i < NUMBER_OF_RESOURCES ; i++) {
+    for (int i = 0 ; i < NUMBER_OF_RESOURCES ; i++)
         available[i] = numResources[i];
-        for (int j = 0 ; j < NUMBER_OF_CUSTOMERS ; j++) {
-            maximum[j][i] = -1;
-            allocation[j][i] = 0;
-            need[j][i] = 0;
+
+    for (int i = 0 ; i < NUMBER_OF_CUSTOMERS ; i++)
+        maxRead[i] = false;
+
+    for (int i = 0 ; i < NUMBER_OF_CUSTOMERS ; i++) {
+        for (int j = 0 ; j < NUMBER_OF_RESOURCES ; j++) {
+            maximum[i][j] = -1;
+            allocation[i][j] = 0;
+            need[i][j] = 0;
         }
     }
 }
@@ -33,61 +38,70 @@ Server::Server(int numResources[], QWidget *parent)
 void Server::processRequest()
 {
     QTcpSocket *clientConnection = tcpServer->nextPendingConnection();
-    logStream << "-Processing request from ip: " << clientConnection->peerAddress().toString();
-    printStreamToLog();
-
-    // Reading the maximum requested resources
-    clientConnection->waitForReadyRead();
-    char maximumMsg[20] = "";
-    qDebug() << clientConnection->readLine(maximumMsg, 20);
-    qDebug() << maximumMsg;
-    QStringList maximumMsgList = QString(maximumMsg).split(" ");
-    int user = maximumMsgList[0].toInt();
-
-    // Writing maximum in database
-    maximum[user][0] = maximumMsgList[2].toInt();
-    maximum[user][1] = maximumMsgList[3].toInt();
-    maximum[user][2] = maximumMsgList[4].toInt();
-
-    // Writing needs in database
-    need[user][0] = maximum[user][0] - allocation[user][0];
-    need[user][1] = maximum[user][1] - allocation[user][1];
-    need[user][2] = maximum[user][2] - allocation[user][2];
 
     // Reading the request
     clientConnection->waitForReadyRead();
     char requestMsg[20] = "";
-    qDebug() << clientConnection->readLine(requestMsg, 20);
+    qDebug() << clientConnection->read(requestMsg, 20);
     qDebug() << requestMsg;
-    logStream << QString(requestMsg);
-    printStreamToLog();
     QStringList requestMsgList = QString(requestMsg).split(" ");
-    //int user = requestMsgList[0].toInt();
-    int request[3];
-    request[0] = requestMsgList[2].toInt();
-    request[1] = requestMsgList[3].toInt();
-    request[2] = requestMsgList[4].toInt();
+    int user = requestMsgList[0].toInt();
 
-    // Processing the request
-    int validInt = validateRequest(user, request);
-    qDebug() << QString::number(validInt);
-    QString responseMsg = QString("");
-    if (validInt == -1)
-        responseMsg = QString::number(-1) + "\n";
-    if (validInt > 0)
-        responseMsg = QString::number(validInt) + "\n";
-    if (validInt == 0) {
-        responseMsg = QString::number(0) + "\n";
-        addInstancesOfResources(request);
+    // If the maximum needs for the current process have not yet been received,
+    // the current request represents its maximum needs
+    if (!maxRead[user]) {
+        // Writing maximum in database
+        maximum[user][0] = requestMsgList[2].toInt();
+        maximum[user][1] = requestMsgList[3].toInt();
+        maximum[user][2] = requestMsgList[4].toInt();
+
+        // Writing needs in database
+        need[user][0] = maximum[user][0] - allocation[user][0];
+        need[user][1] = maximum[user][1] - allocation[user][1];
+        need[user][2] = maximum[user][2] - allocation[user][2];
+
+        maxRead[user] = true;
+
+        //Close conection and free the memory once the connection is lost
+        connect(clientConnection, SIGNAL(disconnected()), clientConnection, SLOT(deleteLater()));
+        clientConnection->disconnectFromHost();
     }
 
-    // Writing response
-    clientConnection->write(responseMsg.toStdString().c_str());
-    clientConnection->waitForBytesWritten();
+    // If the maximum needs for the current request have already been received,
+    // treat the request as a regular one
+    else {
+        logStream << "-Processing request from ip: " << clientConnection->peerAddress().toString();
+        printStreamToLog();
 
-    //Close conection and free the memory once the connection is lost
-    connect(clientConnection, SIGNAL(disconnected()), clientConnection, SLOT(deleteLater()));
-    clientConnection->disconnectFromHost();
+        logStream << QString(requestMsg);
+        printStreamToLog();
+
+        int request[3];
+        request[0] = requestMsgList[2].toInt();
+        request[1] = requestMsgList[3].toInt();
+        request[2] = requestMsgList[4].toInt();
+
+        // Processing the request
+        int validInt = validateRequest(user, request);
+        qDebug() << QString::number(validInt);
+        QString responseMsg = QString("");
+        if (validInt == -1)
+            responseMsg = QString::number(-1);
+        if (validInt > 0)
+            responseMsg = QString::number(validInt);
+        if (validInt == 0) {
+            responseMsg = QString::number(0);
+            addInstancesOfResources(request);
+        }
+
+        // Writing response
+        clientConnection->write(responseMsg.toStdString().c_str());
+        clientConnection->waitForBytesWritten();
+
+        //Close conection and free the memory once the connection is lost
+        connect(clientConnection, SIGNAL(disconnected()), clientConnection, SLOT(deleteLater()));
+        clientConnection->disconnectFromHost();
+    }
 }
 
 /// This funtion should update the values of the
