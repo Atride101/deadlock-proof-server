@@ -15,7 +15,9 @@ Server::Server(int numResources[], QWidget *parent)
     connect(tcpServer, SIGNAL(newConnection()), this, SLOT(processRequest()));
     logStream.setString(&logString);
 
+    //********************************************
     //Initialization of data structures
+    //********************************************
     for (int i = 0 ; i < NUMBER_OF_RESOURCES ; i++)
         available[i] = numResources[i];
 
@@ -128,8 +130,9 @@ int Server::validateRequest(int user, int request[3]) {
     if (-request[0] > available[0] || -request[1] > available[1] || -request[2] > available[2])
         return 5;
 
+    //********************************************
     // Resource-request algorithm
-    //
+    //********************************************
     // Pretend to have allocated the resources to the process
     for (int i = 0 ; i < NUMBER_OF_RESOURCES ; i++) {
         available[i] += request[i];
@@ -146,7 +149,9 @@ int Server::validateRequest(int user, int request[3]) {
     for (int i = 0 ; i < NUMBER_OF_RESOURCES ; i++)
         work[i] = available[i];
 
+    //********************************************
     // Safety algorithm
+    //********************************************
     for (int i = 0 ; i < NUMBER_OF_CUSTOMERS ; i++) {
         for (int j = 0 ; j < NUMBER_OF_CUSTOMERS ; j++) {
             if (finish[j] == false && need[j][0] <= work[0] && need[j][1] <= work[1] && need[j][2] <= work[2]) {

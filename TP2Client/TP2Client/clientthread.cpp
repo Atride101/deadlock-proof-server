@@ -24,6 +24,9 @@ void ClientThread::run()
     int sleepTime = 0;
     bool wait = false;
 
+    //********************************************
+    // Sending maximum resource needs to the server
+    //********************************************
     QTcpSocket socket;
     socket.connectToHost(serverAddress, serverPortNumber);
 
@@ -32,7 +35,7 @@ void ClientThread::run()
     else
         qDebug() << "Connection established";
 
-    // Sending maximum resource demands
+    // Writing to server
     QString maximumMsg = QString::number(index)
             + " 3 " + QString::number(maximum[0])
             + " " + QString::number(maximum[1])
@@ -44,9 +47,12 @@ void ClientThread::run()
     // Artificial waiting time added to make the server alternate between the processes
     sleep(1);
 
+    //********************************************
+    // Sending requests to the server
+    //********************************************
     // Loop over the M requests made by one process
     for (int i = 0; i < M; i++) {
-         int request[3];
+        int request[3];
 
         if (i < M - 1) {
             // Randomization of the request's resources
@@ -87,13 +93,12 @@ void ClientThread::run()
                     + " " + QString::number(request[2]);
             socket.write(requestMsg.toStdString().c_str());
             socket.waitForBytesWritten();
-            qDebug() << "request : " << requestMsg;
 
             // Reading response
             socket.waitForReadyRead();
             char responseMsg[20] = "";
             socket.read(responseMsg, 20);
-            qDebug() << "response : " << QString(responseMsg);
+            qDebug() << QString(responseMsg);
             QStringList responseMsgList = QString(responseMsg).split(" ");
             int response = responseMsgList[0].toInt();
 
