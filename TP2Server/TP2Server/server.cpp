@@ -70,11 +70,12 @@ void Server::processRequest()
 
     // Processing the request
     int validInt = validateRequest(user, request);
+    qDebug() << QString::number(validInt);
     QString responseMsg = QString("");
     if (validInt == -1)
         responseMsg = QString::number(-1) + "\n";
-    if (validInt == 1)
-        responseMsg = QString::number(1) + "\n";
+    if (validInt > 0)
+        responseMsg = QString::number(validInt) + "\n";
     if (validInt == 0) {
         responseMsg = QString::number(0) + "\n";
         addInstancesOfResources(request);

@@ -24,6 +24,7 @@ ClientThread::ClientThread(int id, QString serverIP, int serverPort, int m, QObj
 void ClientThread::run()
 {
     int request[3];
+    int sleepTime = 0;
     bool wait = false;
     char responseMsg[20] = "";
     QString maximumMsg = QString::number(index)
@@ -91,24 +92,27 @@ void ClientThread::run()
             // Processing response
             if (response == -1) {
                 wait = false;
-                break;
+                sleepTime = 0;
             }
             if (response > 0) {
                 wait = true;
-                sleep(response);
+                sleepTime = response;
             }
             if (response == 0) {
                 wait = false;
+                sleepTime = 0;
                 allocated[0] -= request[0];
                 allocated[1] -= request[1];
                 allocated[2] -= request[2];
             }
 
-            socket.close();
+            socket.disconnectFromHost();
+
+            sleep(1);
 
         } while (wait == true);
 
-        sleep(1);
+        sleep(sleepTime);
     }
 
     exit(0);
