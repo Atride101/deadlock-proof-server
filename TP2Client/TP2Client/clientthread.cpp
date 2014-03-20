@@ -57,7 +57,8 @@ void ClientThread::run()
 
         if (i < M - 1) {
             // Randomization of the request's resources
-            // The values are randomized within a certain range (they are always valid)
+            // The values are randomized within a certain range
+            // They are always valid
             while (true) {
                 for (int i = 0; i < NUMBER_OF_RESOURCES; i++)
                     request[i] = rand() % (maximum[i] + 1) - maximum[i] + allocated[i];
