@@ -6,17 +6,17 @@ ClientThread::ClientThread(int id, QString serverIP, int serverPort, int m, QObj
     : QThread(parent), index(id), serverAddress(serverIP), serverPortNumber(serverPort), M(m)
 {
     // Initialization of data structures
-    allocated[0] = 0;
-    allocated[1] = 0;
-    allocated[2] = 0;
+    for (int i = 0; i < NUMBER_OF_RESOURCES; i++)
+        allocated[i] = 0;
+
+    int totalResources[NUMBER_OF_RESOURCES] = {20, 100, 5};
 
     // Randomization of the maximum requested resources
     // The values cannot be bigger than the total resources of each type
     // These totals are fixed at 20, 100, 5
     srand (time(NULL)); // randomized seed
-    maximum[0] = rand() % 21;
-    maximum[1] = rand() % 101;
-    maximum[2] = rand() % 6;
+    for (int i = 0; i < NUMBER_OF_RESOURCES; i++)
+        maximum[i] = rand() % (totalResources[i] + 1);
 }
 
 void ClientThread::run()
@@ -35,11 +35,12 @@ void ClientThread::run()
     else
         qDebug() << "Connection established";
 
-    // Writing to server
-    QString maximumMsg = QString::number(index)
-            + " 3 " + QString::number(maximum[0])
-            + " " + QString::number(maximum[1])
-            + " " + QString::number(maximum[2]);
+    QString maximumMsg = QString::number(index) + " " + QString::number(NUMBER_OF_RESOURCES);
+    for (int i = 0; i < NUMBER_OF_RESOURCES; i++)
+        maximumMsg += " " + QString::number(maximum[i]);
+    qDebug() << "    Sending maximum: " << maximumMsg;
+
+    // Writing maximum to socket
     socket.write(maximumMsg.toStdString().c_str());
     socket.waitForBytesWritten();
 
@@ -52,27 +53,36 @@ void ClientThread::run()
     //********************************************
     // Loop over the M requests made by one process
     for (int i = 0; i < M; i++) {
-        int request[3];
+        int request[NUMBER_OF_RESOURCES];
 
         if (i < M - 1) {
             // Randomization of the request's resources
             // The values are randomized within a certain range (they are always valid)
             while (true) {
-                request[0] = rand() % (maximum[0] + 1) - maximum[0] + allocated[0];
-                request[1] = rand() % (maximum[1] + 1) - maximum[1] + allocated[1];
-                request[2] = rand() % (maximum[2] + 1) - maximum[2] + allocated[2];
+                for (int i = 0; i < NUMBER_OF_RESOURCES; i++)
+                    request[i] = rand() % (maximum[i] + 1) - maximum[i] + allocated[i];
 
-                // Checks if the resource requests are either all postive or all negative
-                if ((request[0] >= 0 && request[1] >= 0 && request[2] >= 0)
-                        || (request[0] <= 0 && request[1]<= 0 && request[2] <= 0))
+                // Checks if the resource requests are either all positive or all negative
+                bool allPositive = true;
+                for (int i = 0; i < NUMBER_OF_RESOURCES; i++) {
+                    if (request[i] < 0)
+                        allPositive = false;
+                }
+
+                bool allNegative = true;
+                for (int i = 0; i < NUMBER_OF_RESOURCES; i++) {
+                    if (request[i] > 0)
+                        allNegative = false;
+                }
+
+                if (allPositive || allNegative)
                     break;
             }
         }
         // Frees all allocated resources with the final request
         else {
-            request[0] = allocated[0];
-            request[1] = allocated[1];
-            request[2] = allocated[2];
+            for (int i = 0; i < NUMBER_OF_RESOURCES; i++)
+                request[i] = allocated[i];
         }
 
         // Try the same request again after a certain time if the request is
@@ -86,11 +96,12 @@ void ClientThread::run()
             else
                 qDebug() << "Connection established";
 
-            // Sending request
-            QString requestMsg = QString::number(index)
-                    + " 3 " + QString::number(request[0])
-                    + " " + QString::number(request[1])
-                    + " " + QString::number(request[2]);
+            QString requestMsg = QString::number(index) + " " + QString::number(NUMBER_OF_RESOURCES);
+            for (int i = 0; i < NUMBER_OF_RESOURCES; i++)
+                requestMsg += " " + QString::number(request[i]);
+            qDebug() << "    Request: " << requestMsg;
+
+            // Writing request to socket
             socket.write(requestMsg.toStdString().c_str());
             socket.waitForBytesWritten();
 
@@ -98,7 +109,9 @@ void ClientThread::run()
             socket.waitForReadyRead();
             char responseMsg[20] = "";
             socket.read(responseMsg, 20);
-            qDebug() << QString(responseMsg);
+            qDebug() << "    Response: " << QString(responseMsg);
+
+            //Parsing response
             QStringList responseMsgList = QString(responseMsg).split(" ");
             int response = responseMsgList[0].toInt();
 
@@ -114,9 +127,8 @@ void ClientThread::run()
             if (response == 0) {
                 wait = false;
                 sleepTime = 0;
-                allocated[0] -= request[0];
-                allocated[1] -= request[1];
-                allocated[2] -= request[2];
+                for (int i = 0; i < NUMBER_OF_RESOURCES; i++)
+                    allocated[i] -= request[i];
             }
 
             socket.disconnectFromHost();

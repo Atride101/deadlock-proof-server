@@ -4,6 +4,8 @@
 #include <QThread>
 #include <QTcpSocket>
 
+#define NUMBER_OF_RESOURCES 3
+
 class ClientThread : public QThread
 {
     Q_OBJECT
@@ -17,8 +19,8 @@ private:
     QString     serverAddress;
     int         serverPortNumber;
     int         M;
-    int         allocated[3];
-    int         maximum[3];
+    int         allocated[NUMBER_OF_RESOURCES];
+    int         maximum[NUMBER_OF_RESOURCES];
 };
 
 #endif // CLIENTTHREAD_H

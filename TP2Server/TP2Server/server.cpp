@@ -44,48 +44,57 @@ void Server::processRequest()
     // Reading the request
     clientConnection->waitForReadyRead();
     char requestMsg[20] = "";
-    qDebug() << clientConnection->read(requestMsg, 20);
-    qDebug() << requestMsg;
+    clientConnection->read(requestMsg, 20);
+
+    // Parsing the request
     QStringList requestMsgList = QString(requestMsg).split(" ");
     int user = requestMsgList[0].toInt();
 
+    //********************************************
+    // Receiving maximum needs
+    //********************************************
     // If the maximum needs for the current process have not yet been received,
     // the current request represents its maximum needs
     if (!maxRead[user]) {
         // Writing maximum in database
-        maximum[user][0] = requestMsgList[2].toInt();
-        maximum[user][1] = requestMsgList[3].toInt();
-        maximum[user][2] = requestMsgList[4].toInt();
+        for (int i = 0; i < NUMBER_OF_RESOURCES; i++)
+            maximum[user][i] = requestMsgList[i + 2].toInt();
 
         // Writing needs in database
-        need[user][0] = maximum[user][0] - allocation[user][0];
-        need[user][1] = maximum[user][1] - allocation[user][1];
-        need[user][2] = maximum[user][2] - allocation[user][2];
+        for (int i = 0; i < NUMBER_OF_RESOURCES; i++)
+            need[user][i] = maximum[user][i] - allocation[user][i];
 
         maxRead[user] = true;
+
+        logStream << "-Receiving maximum from ip: " << clientConnection->peerAddress().toString();
+        printStreamToLog();
+
+        logStream << "    Maximum: " << QString(requestMsg);
+        printStreamToLog();
 
         //Close conection and free the memory once the connection is lost
         connect(clientConnection, SIGNAL(disconnected()), clientConnection, SLOT(deleteLater()));
         clientConnection->disconnectFromHost();
     }
 
+    //********************************************
+    // Processing the request
+    //********************************************
     // If the maximum needs for the current request have already been received,
     // treat the request as a regular one
     else {
         logStream << "-Processing request from ip: " << clientConnection->peerAddress().toString();
         printStreamToLog();
 
-        logStream << QString(requestMsg);
+        logStream << "    Request: " << QString(requestMsg);
         printStreamToLog();
 
-        int request[3];
-        request[0] = requestMsgList[2].toInt();
-        request[1] = requestMsgList[3].toInt();
-        request[2] = requestMsgList[4].toInt();
+        int request[NUMBER_OF_RESOURCES];
+        for (int i = 0; i < NUMBER_OF_RESOURCES; i++)
+            request[i] = requestMsgList[i + 2].toInt();
 
         // Processing the request
         int validInt = validateRequest(user, request);
-        qDebug() << QString::number(validInt);
         QString responseMsg = QString("");
         if (validInt == -1)
             responseMsg = QString::number(-1);
@@ -95,6 +104,9 @@ void Server::processRequest()
             responseMsg = QString::number(0);
             addInstancesOfResources(request);
         }
+
+        logStream << "    Response: " << QString::number(validInt);
+        printStreamToLog();
 
         // Writing response
         clientConnection->write(responseMsg.toStdString().c_str());
@@ -119,16 +131,34 @@ void Server::addInstancesOfResources(int numberOfInstances[NUMBER_OF_RESOURCES])
 
 /// This function does the Banker's algorithm with the current request
 /// and simply returns whether the request is valid, invalid or if it should wait
-int Server::validateRequest(int user, int request[3]) {
+int Server::validateRequest(int user, int request[NUMBER_OF_RESOURCES]) {
+
     // Checks if the request is greater than the current need
-    if (-request[0] > need[user][0] || -request[1] > need[user][1] || -request[2] > need[user][2])
-        return -1;
+    for (int i = 0; i < NUMBER_OF_RESOURCES; i++) {
+        if (-request[i] > need[user][i]) {
+            logStream << "    Error: request greater than need";
+            printStreamToLog();
+            return -1;
+        }
+    }
+
     // Checks if the returned resources are greater than the current allocation
-    if (request[0] > allocation[user][0] || request[1] > allocation[user][1] || request[2] > allocation[user][2])
-        return -1;
+    for (int i = 0; i < NUMBER_OF_RESOURCES; i++) {
+        if (request[i] > allocation[user][i]) {
+            logStream << "    Error: returned resources greater than allocation";
+            printStreamToLog();
+            return -1;
+        }
+    }
+
     // Checks if the request is greater than the current available resources
-    if (-request[0] > available[0] || -request[1] > available[1] || -request[2] > available[2])
-        return 5;
+    for (int i = 0; i < NUMBER_OF_RESOURCES; i++) {
+        if (-request[i] > available[i]) {
+            logStream << "    Error: request greater than available resources";
+            printStreamToLog();
+            return NUMBER_OF_CUSTOMERS - 1;
+        }
+    }
 
     //********************************************
     // Resource-request algorithm
@@ -180,7 +210,9 @@ int Server::validateRequest(int user, int request[3]) {
             allocation[user][i] += request[i];
             need[user][i] -= request[i];
         }
-        return 1;
+        logStream << "    Error: unsafe state";
+        printStreamToLog();
+        return NUMBER_OF_CUSTOMERS - 1;
     }
 
     return 0;
